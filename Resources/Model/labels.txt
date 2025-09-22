@@ -1,0 +1,3 @@
+0 Biodegradable waste 
+1 Non bio degradable waste
+2 Hazardeous Waste

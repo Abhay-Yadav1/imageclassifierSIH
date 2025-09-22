@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waste Segregation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/index.css">
+</head>
+<body>
+
+       <nav class="main-nav">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <i class="fas fa-recycle"></i>
+                <span>WasteAI</span>
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link active">Image Classification</a>
+                <a href="/speech" class="nav-link">Voice Search</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-recycle"></i>
+            </div>
+            <h1>Smart Way to Segregate</h1>
+            <p class="tagline">AI-powered waste classification for a cleaner planet</p>
+        </header>
+        
+        <div class="content">
+            <div class="info-panel">
+                <h2 class="panel-title">Waste Categories</h2>
+                <div class="waste-types">
+                    <div class="waste-type">
+                        <div class="waste-icon biodegradable">
+                            <i class="fas fa-leaf"></i>
+                        </div>
+                        <div class="waste-info">
+                            <h3>Biodegradable Waste</h3>
+                            <p>Food scraps, garden waste, paper products</p>
+                            <p><strong>Dispose in: Green Dustbin</strong></p>
+                        </div>
+                    </div>
+                    
+                    <div class="waste-type">
+                        <div class="waste-icon non-biodegradable">
+                            <i class="fas fa-plastic-bottle"></i>
+                        </div>
+                        <div class="waste-info">
+                            <h3>Non-Biodegradable Waste</h3>
+                            <p>Plastics, metals, glass, synthetic materials</p>
+                            <p><strong>Dispose in: Blue Dustbin</strong></p>
+                        </div>
+                    </div>
+                    
+                    <div class="waste-type">
+                        <div class="waste-icon hazardous">
+                            <i class="fas fa-flask"></i>
+                        </div>
+                        <div class="waste-info">
+                            <h3>Hazardous Waste</h3>
+                            <p>Batteries, chemicals, electronics, medical waste</p>
+                            <p><strong>Dispose in: Red Dustbin</strong></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="webcam-panel">
+                <h2 class="panel-title">Waste Classifier</h2>
+                <div class="webcam-feed">
+                    <div class="webcam-placeholder">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <video id="video" autoplay playsinline></video>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn btn-primary" id="startWebcam">
+                        <i class="fas fa-video"></i> Start Classification
+                    </button>
+                    <button class="btn btn-secondary" id="stopWebcam" disabled>
+                        <i class="fas fa-stop"></i> Stop Classification
+                    </button>
+                    <button class="btn btn-primary" id="captureBtn" disabled>
+                        <i class="fas fa-camera"></i> Capture & Classify
+                    </button>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Classifying...
+                </div>
+                
+                <div class="result">
+                    <div class="result-text" id="resultText">Point the camera at waste material</div>
+                    <div class="confidence" id="confidenceText">Confidence: 0%</div>
+                    <div class="dustbin">
+                        <i class="fas fa-trash" id="dustbinIcon"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Smart Waste Segregation System | Hackathon Project 2023</p>
+            <p>Powered by TensorFlow and Teachable Machine</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM elements
+        const startWebcamBtn = document.getElementById('startWebcam');
+        const stopWebcamBtn = document.getElementById('stopWebcam');
+        const captureBtn = document.getElementById('captureBtn');
+        const video = document.getElementById('video');
+        const webcamFeed = document.querySelector('.webcam-feed');
+        const resultText = document.getElementById('resultText');
+        const confidenceText = document.getElementById('confidenceText');
+        const dustbinIcon = document.getElementById('dustbinIcon');
+        const loadingElement = document.getElementById('loading');
+        
+        let stream = null;
+        let classificationInterval = null;
+        
+        // Check if model is loaded
+        fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.model_loaded) {
+                    resultText.textContent = "Model not loaded. Please check the server.";
+                    startWebcamBtn.disabled = true;
+                }
+            });
+        
+        // Start webcam
+        async function startWebcam() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                video.srcObject = stream;
+                
+                // Remove placeholder and show video
+                const placeholder = document.querySelector('.webcam-placeholder');
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                video.style.display = 'block';
+                
+                // Enable/disable buttons
+                startWebcamBtn.disabled = true;
+                stopWebcamBtn.disabled = false;
+                captureBtn.disabled = false;
+                
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                resultText.textContent = "Error accessing webcam. Please check permissions.";
+            }
+        }
+        
+        // Stop webcam
+        function stopWebcam() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            if (classificationInterval) {
+                clearInterval(classificationInterval);
+                classificationInterval = null;
+            }
+            
+            // Show placeholder and hide video
+            video.style.display = 'none';
+            const placeholder = document.querySelector('.webcam-placeholder');
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
+            
+            // Enable/disable buttons
+            startWebcamBtn.disabled = false;
+            stopWebcamBtn.disabled = true;
+            captureBtn.disabled = true;
+            
+            // Reset results
+            resultText.textContent = "Point the camera at waste material";
+            confidenceText.textContent = "Confidence: 0%";
+            dustbinIcon.className = "fas fa-trash";
+            dustbinIcon.style.color = "";
+            
+            // Hide loading
+            loadingElement.style.display = 'none';
+        }
+        
+        // Capture image and classify
+        function captureAndClassify() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw the current video frame to the canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to data URL
+            const imageData = canvas.toDataURL('image/jpeg');
+            
+            // Show loading
+            loadingElement.style.display = 'block';
+            
+            // Send to server for classification
+            fetch('/classify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image: imageData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading
+                loadingElement.style.display = 'none';
+                
+                if (data.success) {
+                    resultText.textContent = `Category: ${data.category}`;
+                    confidenceText.textContent = `Confidence: ${(data.confidence * 100).toFixed(2)}%`;
+                    
+                    // Update dustbin icon based on classification
+                    if (data.dustbin.includes('Green')) {
+                        dustbinIcon.className = "fas fa-leaf";
+                        dustbinIcon.style.color = "#4CAF50";
+                    } else if (data.dustbin.includes('Blue')) {
+                        dustbinIcon.className = "fas fa-plastic-bottle";
+                        dustbinIcon.style.color = "#2196F3";
+                    } else if (data.dustbin.includes('Red')) {
+                        dustbinIcon.className = "fas fa-flask";
+                        dustbinIcon.style.color = "#f44336";
+                    } else {
+                        dustbinIcon.className = "fas fa-trash";
+                        dustbinIcon.style.color = "";
+                    }
+                } else {
+                    resultText.textContent = data.message;
+                    confidenceText.textContent = "";
+                    dustbinIcon.className = "fas fa-trash";
+                    dustbinIcon.style.color = "";
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                loadingElement.style.display = 'none';
+                resultText.textContent = "Error communicating with server";
+            });
+        }
+        
+        // Set up automatic classification every 3 seconds
+        function startAutoClassification() {
+            if (classificationInterval) {
+                clearInterval(classificationInterval);
+            }
+            
+            classificationInterval = setInterval(() => {
+                if (stream) {
+                    captureAndClassify();
+                }
+            }, 3000);
+        }
+        
+        // Event listeners
+        startWebcamBtn.addEventListener('click', () => {
+            startWebcam();
+            // Start automatic classification after a brief delay
+            setTimeout(startAutoClassification, 1000);
+        });
+        
+        stopWebcamBtn.addEventListener('click', stopWebcam);
+        captureBtn.addEventListener('click', captureAndClassify);
+    </script>
+</body>
+</html>

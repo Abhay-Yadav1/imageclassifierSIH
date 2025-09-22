@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Government Waste Classification System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="main-nav">
+        <div class="nav-container">
+            <a href="/" class="nav-logo">
+                <i class="fas fa-recycle"></i>
+                <span>WasteAI</span>
+            </a>
+            <div class="nav-links">
+                <a href="/" class="nav-link ">Image Classification</a>
+                <a href="/speech" class="nav-link active">Voice Search</a>
+            </div>
+        </div>
+    </nav>
+    <div class="gov-container">
+        <header class="gov-header">
+            <div class="gov-logo">SWM</div>
+            <h1>Smart Waste Management System</h1>
+        </header>
+        
+        <main class="gov-content">
+           
+            
+            <div class="gov-section">
+                <h2 class="gov-section-title">Voice Controls</h2>
+                <div class="voice-controls">
+                    <button class="gov-button gov-button-primary" id="startListening">
+                        <span class="button-icon">🎤</span> Start Listening
+                    </button>
+                    <button class="gov-button gov-button-secondary" id="stopListening" disabled>
+                        <span class="button-icon">⏹️</span> Stop Listening
+                    </button>
+                </div>
+                <div class="status-indicator" id="listeningStatus">Microphone ready - Press "Start Listening" to begin</div>
+            </div>
+            
+            <div class="gov-section">
+                <h2 class="gov-section-title">Describe Your Waste Item</h2>
+                <div class="instructions">
+                    <p><strong>Examples:</strong> "This is a plastic bottle", "I have food waste", "This is a battery"</p>
+                    <p>Speak clearly and describe your waste item in simple terms.</p>
+                </div>
+            </div>
+            
+            <div class="gov-section">
+                <h2 class="gov-section-title">Classification Result</h2>
+                <div class="result-card">
+                    <div class="result-item">
+                        <span class="result-label">Category:</span>
+                        <span class="result-value" id="result">No classification yet</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Confidence:</span>
+                        <span class="result-value" id="confidence">0%</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-label">Recommended:</span>
+                        <span class="result-value" id="dustbin">Please describe your waste item</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="gov-section">
+                <h2 class="gov-section-title">Waste Categories</h2>
+                <div class="waste-categories">
+                    <div class="waste-category">
+                        <h3>
+                            <span class="category-icon icon-green">♻</span>
+                            Biodegradable Waste
+                        </h3>
+                        <p><strong>Green Dustbin:</strong> For organic waste that decomposes naturally</p>
+                        <ul>
+                            <li>Food waste</li>
+                            <li>Paper products</li>
+                            <li>Garden waste</li>
+                            <li>Organic materials</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="waste-category">
+                        <h3>
+                            <span class="category-icon icon-blue">🔄</span>
+                            Non-Biodegradable Waste
+                        </h3>
+                        <p><strong>Blue Dustbin:</strong> For recyclable materials</p>
+                        <ul>
+                            <li>Plastic containers</li>
+                            <li>Metal items</li>
+                            <li>Glass bottles</li>
+                            <li>Packaging materials</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="waste-category">
+                        <h3>
+                            <span class="category-icon icon-red">⚠</span>
+                            Hazardous Waste
+                        </h3>
+                        <p><strong>Red Dustbin:</strong> For dangerous materials requiring special handling</p>
+                        <ul>
+                            <li>Batteries</li>
+                            <li>Chemicals</li>
+                            <li>Electronics</li>
+                            <li>Medical waste</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // DOM elements
+        const startListeningBtn = document.getElementById('startListening');
+        const stopListeningBtn = document.getElementById('stopListening');
+        const listeningStatus = document.getElementById('listeningStatus');
+        const resultElement = document.getElementById('result');
+        const confidenceElement = document.getElementById('confidence');
+        const dustbinElement = document.getElementById('dustbin');
+        
+        // Check if browser supports Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+            
+            recognition.onstart = function() {
+                listeningStatus.textContent = "Listening... Speak now";
+                listeningStatus.classList.add('listening');
+                startListeningBtn.disabled = true;
+                stopListeningBtn.disabled = false;
+            };
+            
+            recognition.onresult = function(event) {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                }
+                
+                if (transcript) {
+                    processVoiceCommand(transcript);
+                }
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('Speech recognition error', event.error);
+                listeningStatus.textContent = "Error: " + event.error;
+                listeningStatus.classList.remove('listening');
+                stopListening();
+            };
+            
+            recognition.onend = function() {
+                listeningStatus.textContent = "Microphone ready";
+                listeningStatus.classList.remove('listening');
+                startListeningBtn.disabled = false;
+                stopListeningBtn.disabled = true;
+            };
+        } else {
+            listeningStatus.textContent = "Speech recognition not supported in this browser";
+            listeningStatus.style.color = '#dc2626';
+            startListeningBtn.disabled = true;
+        }
+        
+        // Speech synthesis setup
+        const synth = window.speechSynthesis;
+        
+        function speak(text) {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.8;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            synth.speak(utterance);
+        }
+        
+        // Voice command processing
+        function processVoiceCommand(command) {
+            console.log("Processing command:", command);
+            
+            // Convert to lowercase for easier matching
+            const lowerCommand = command.toLowerCase();
+            
+            // Define waste categories and their keywords
+            const wasteCategories = {
+                'Biodegradable waste': {
+                    keywords: ['food', 'vegetable', 'fruit', 'paper', 'garden', 'plant', 'organic', 'biodegradable', 'compost'],
+                    dustbin: 'Green Dustbin'
+                },
+                'Non bio degradable waste': {
+                    keywords: ['plastic', 'bottle', 'bag', 'wrapper', 'metal', 'can', 'glass', 'non biodegradable', 'packaging', 'container'],
+                    dustbin: 'Blue Dustbin'
+                },
+                'Hazardous Waste': {
+                    keywords: ['battery', 'chemical', 'medicine', 'electronic', 'device', 'hazardous', 'toxic', 'dangerous', 'medical', 'e-waste'],
+                    dustbin: 'Red Dustbin'
+                }
+            };
+            
+            let bestMatch = null;
+    let highestConfidence = 0;
+    
+    for (const [category, data] of Object.entries(wasteCategories)) {
+        let matchCount = 0;
+        for (const keyword of data.keywords) {
+            // Use word boundary matching to avoid partial matches
+            const regex = new RegExp('\\b' + keyword + '\\b', 'i');
+            if (regex.test(lowerCommand)) {
+                matchCount++;
+            }
+        }
+        
+        const confidence = matchCount > 0 ? 0.7 + (matchCount * 0.1) : 0;
+        if (confidence > highestConfidence) {
+            highestConfidence = confidence;
+            bestMatch = { category, dustbin: data.dustbin, confidence: Math.min(confidence, 0.95) };
+        }
+    }
+            
+            // Display and speak results
+            if (bestMatch && highestConfidence > 0.1) {
+                const confidencePercent = Math.round(bestMatch.confidence * 100);
+                resultElement.textContent = bestMatch.category;
+                confidenceElement.textContent = `${confidencePercent}%`;
+                dustbinElement.textContent = bestMatch.dustbin;
+                
+                // Visual feedback based on category
+                dustbinElement.className = 'result-value ';
+                if (bestMatch.dustbin.includes('Green')) {
+                    dustbinElement.classList.add('biodegradable');
+                } else if (bestMatch.dustbin.includes('Blue')) {
+                    dustbinElement.classList.add('non-biodegradable');
+                } else if (bestMatch.dustbin.includes('Red')) {
+                    dustbinElement.classList.add('hazardous');
+                }
+                
+                // Speak the result
+                speak(`This appears to be ${bestMatch.category}. Please use the ${bestMatch.dustbin}.`);
+            } else {
+                resultElement.textContent = "Could not identify waste type";
+                confidenceElement.textContent = "0%";
+                dustbinElement.textContent = "Please try a different description";
+                dustbinElement.className = 'result-value';
+                
+                // Ask for more specific description
+                speak("couldn't identify the waste type. describe more specifically,like plastic bottle,food waste,or battery.");
+            }
+        }
+        
+        // Control functions
+        function startListening() {
+            if (recognition) {
+                recognition.start();
+            }
+        }
+        
+        function stopListening() {
+            if (recognition) {
+                recognition.stop();
+            }
+        }
+        
+        // Event listeners
+        startListeningBtn.addEventListener('click', startListening);
+        stopListeningBtn.addEventListener('click', stopListening);
+        
+        // Initial instructions
+        window.onload = function() {
+            setTimeout(() => {
+                speak(" Press the start button and describe your waste item.");
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
